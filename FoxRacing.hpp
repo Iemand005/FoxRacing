@@ -240,7 +240,7 @@ public:
 
 		// scene->AddObject(tomcat);
 
-		auto lambo = fe::ModelLoader::LoadModel("C:/Users/Lasse/3D Objects/free__lamborghini_terzo_millennio_wind_tunnel.glb");
+		auto lambo = fe::ModelLoader::LoadModel("C:/Users/Lasse/3D Objects/1988_lamborghini_countach.glb");
 		scene->AddObject(lambo);
 
 	}
