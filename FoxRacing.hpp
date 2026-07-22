@@ -289,7 +289,7 @@ public:
 	}
 
 	void LoadModels() {
-		float worldScale = 2.5f;
+		float worldScale = 1.35f;
 		auto terrain = fe::ModelLoader::LoadModel("C:/Users/Lasse/3D Objects/road_with_trees.glb");
 		if (terrain) {
 			scene->AddObject(terrain);
@@ -380,7 +380,6 @@ public:
 
 			glm::quat rot = lambo->physicsObject->GetRotation();
 			glm::vec3 forward = rot * glm::vec3(0.0f, 0.0f, 1.0f);
-			forward.y = 0.0f;
 			if (glm::length(forward) > 0.001f) forward = glm::normalize(forward);
 			else forward = glm::vec3(0.0f, 0.0f, 1.0f);
 
