@@ -42,6 +42,9 @@ public:
 
 	std::vector<fe::Joystick> joysicks;
 
+	std::shared_ptr<fe::Object> lambo;
+	std::vector<std::shared_ptr<fe::Object>> barrierWalls;
+
 	static constexpr int MAZE_COLS = 8;
 	static constexpr int MAZE_ROWS = 8;
 	static constexpr float CELL_SIZE = 2.0f;
@@ -242,46 +245,77 @@ public:
 		}
 	}
 
+	void CreateBarrierWalls() {
+		float size = 200.0f;
+		float height = 5.0f;
+		float thick = 1.0f;
+		glm::vec3 col(0.0f);
+		auto addWall = [&](glm::vec3 pos, glm::vec3 scale) {
+			auto mesh = fe::Primitives::GenerateCube(
+				{fe::PlaneDirection::Front, fe::PlaneDirection::Back, fe::PlaneDirection::Left,
+				 fe::PlaneDirection::Right, fe::PlaneDirection::Top, fe::PlaneDirection::Bottom},
+				fe::Primitives::defaultUVs, 1.0f);
+			auto wall = std::make_shared<fe::Object>(mesh);
+			wall->state.position = pos;
+			wall->state.scale = scale;
+			wall->color = col;
+			wall->isStatic = true;
+			wall->SetPhysicsObject(GetPhysicsEngine()->CreateObject(scale, false));
+			if (wall->physicsObject)
+				wall->physicsObject->SetPosition(pos);
+			scene->AddObject(wall);
+			barrierWalls.push_back(wall);
+		};
+		float half = size * 0.5f;
+		addWall(glm::vec3(0.0f, -2.0f, 0.0f), glm::vec3(size, 0.5f, size));
+		addWall(glm::vec3(0.0f, height * 0.5f, -half - thick), glm::vec3(size + thick, height, thick));
+		addWall(glm::vec3(0.0f, height * 0.5f, half + thick), glm::vec3(size + thick, height, thick));
+		addWall(glm::vec3(-half - thick, height * 0.5f, 0.0f), glm::vec3(thick, height, size + thick));
+		addWall(glm::vec3(half + thick, height * 0.5f, 0.0f), glm::vec3(thick, height, size + thick));
+	}
+
+	void ResetCar() {
+		if (!lambo || !lambo->physicsObject) return;
+		lambo->state.position = glm::vec3(0.0f, 5.0f, 0.0f);
+		lambo->physicsObject->SetPosition(lambo->state.position);
+		lambo->physicsObject->SetLinearVelocity(glm::vec3(0.0f));
+		lambo->physicsObject->SetAngularVelocity(glm::vec3(0.0f));
+	}
+
 	void LoadModels() {
-
-		// Player
-		this->player = std::make_shared<fe::Character>();
-		this->scene->AddObject(player);
-		this->player->state.position = glm::vec3(0.0f, 3.0f, 0.0f);
-		RebuildPlayerPhysicsBody();
-		if (this->player->physicsObject) {
-			this->player->physicsObject->SetPosition(this->player->state.position);
-		}
-
-		// Load terrain with mesh collider
 		auto terrain = fe::ModelLoader::LoadModel("C:/Users/Lasse/3D Objects/road_with_trees.glb");
 		if (terrain) {
 			scene->AddObject(terrain);
 			AddMeshColliders(terrain.get());
 		}
 
-		// Load Lamborghini and give it a box physics body so it sits on the terrain
-		auto lambo = fe::ModelLoader::LoadModel("C:/Users/Lasse/3D Objects/1988_lamborghini_countach.glb");
+		lambo = fe::ModelLoader::LoadModel("C:/Users/Lasse/3D Objects/1988_lamborghini_countach.glb");
 		if (lambo) {
 			lambo->state.position = glm::vec3(0.0f, 5.0f, 0.0f);
 			scene->AddObject(lambo);
-			lambo->SetPhysicsObject(GetPhysicsEngine()->CreateObject(glm::vec3(1.8f, 0.8f, 4.0f), true));
+			lambo->SetPhysicsObject(GetPhysicsEngine()->CreateObject(glm::vec3(1.8f, 0.8f, 4.0f), true, true));
 			if (lambo->physicsObject) {
 				lambo->physicsObject->SetPosition(lambo->state.position);
 			}
 		}
 
+		CreateBarrierWalls();
 	}
 
 	bool freeCamera = false;
 
-	void SyncCameraToPlayer() {
-		if (!player || freeCamera) return;
-
-		camera->SetPos(glm::vec3(0.0f, 25.0f, 0.0f));
-		camera->pitch = -90.0f;
-		camera->yaw = 90.0f;
-		camera->UpdateDirection();
+	void SyncCameraToCar() {
+		if (!lambo || freeCamera) return;
+		float distance = 8.0f;
+		float height = 4.0f;
+		glm::quat rot = lambo->physicsObject ? lambo->physicsObject->GetRotation() : lambo->state.orientation;
+		glm::vec3 carPos = lambo->state.position;
+		glm::vec3 forward = rot * glm::vec3(0.0f, 0.0f, -1.0f);
+		forward.y = 0.0f;
+		if (glm::length(forward) > 0.001f) forward = glm::normalize(forward);
+		else forward = glm::vec3(0.0f, 0.0f, -1.0f);
+		camera->SetPos(carPos - forward * distance + glm::vec3(0.0f, height, 0.0f));
+		camera->LookAt(carPos + forward * 3.0f);
 	}
 
 	void ProcessInput() {
@@ -303,16 +337,6 @@ public:
 			case SDL_EVENT_WINDOW_RESIZED:
 			case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
 				break;
-				case SDL_EVENT_MOUSE_MOTION:
-				{
-					if (!window->IsCapturingMouse()) break;
-					float sensitivity = 0.1f;
-					camera->yaw   += event.motion.xrel * sensitivity;
-					camera->pitch -= event.motion.yrel * sensitivity;
-					camera->UpdateDirection();
-					camera->pitch = std::clamp(camera->pitch, -89.0f, 89.0f);
-					break;
-				}
 				case SDL_EVENT_KEY_DOWN:
 					if (event.key.key == SDLK_F11) {
 						window->ToggleFullscreen();
@@ -328,14 +352,24 @@ public:
 			}
 		}
 
-		if (!freeCamera) {
-			if (window->IsKeyDown(SDL_SCANCODE_W)) this->player->Move(fe::Direction::Forwards, camera.get());
-			if (window->IsKeyDown(SDL_SCANCODE_A)) this->player->Move(fe::Direction::Left, camera.get());
-			if (window->IsKeyDown(SDL_SCANCODE_S)) this->player->Move(fe::Direction::Backwards, camera.get());
-			if (window->IsKeyDown(SDL_SCANCODE_D)) this->player->Move(fe::Direction::Right, camera.get());
+		if (!freeCamera && lambo && lambo->physicsObject) {
+			float accel = 0.0f;
+			float steer = 0.0f;
+			if (window->IsKeyDown(SDL_SCANCODE_W) || window->IsKeyDown(SDL_SCANCODE_UP)) accel = 15.0f;
+			if (window->IsKeyDown(SDL_SCANCODE_S) || window->IsKeyDown(SDL_SCANCODE_DOWN)) accel = -8.0f;
+			if (window->IsKeyDown(SDL_SCANCODE_A) || window->IsKeyDown(SDL_SCANCODE_LEFT)) steer = 2.5f;
+			if (window->IsKeyDown(SDL_SCANCODE_D) || window->IsKeyDown(SDL_SCANCODE_RIGHT)) steer = -2.5f;
 
-			if (window->IsKeyDown(SDL_SCANCODE_SPACE)) this->player->Move(fe::Direction::Up, camera.get());
-			if (window->IsKeyDown(SDL_SCANCODE_LSHIFT)) this->player->Move(fe::Direction::Down, camera.get());
+			glm::quat rot = lambo->physicsObject->GetRotation();
+			glm::vec3 forward = rot * glm::vec3(0.0f, 0.0f, -1.0f);
+			forward.y = 0.0f;
+			if (glm::length(forward) > 0.001f) forward = glm::normalize(forward);
+			else forward = glm::vec3(0.0f, 0.0f, -1.0f);
+
+			glm::vec3 vel = forward * accel;
+			vel.y = lambo->physicsObject->GetLinearVelocity().y;
+			lambo->physicsObject->SetLinearVelocity(vel);
+			lambo->physicsObject->SetAngularVelocity(glm::vec3(0.0f, steer, 0.0f));
 		}
 
 		if (window->IsKeyDown(SDL_SCANCODE_ESCAPE)) window->StopMouseCapture();
@@ -363,33 +397,21 @@ public:
 		window->Show();
 		window->DisableVSync();
 
-		glm::vec3 startPos = CellToWorld(0, 0);
-		player->state.position = startPos + glm::vec3(0.0f, 2.0f, 0.0f);
-		if (player->physicsObject) {
-			player->physicsObject->SetPosition(player->state.position);
-		}
-		// camera->farDist = farPlane;
 		camera->SetAspect(camera->aspect);
-		SyncCameraToPlayer();
+
+		if (lambo) {
+			lambo->state.position = glm::vec3(0.0f, 5.0f, 0.0f);
+			if (lambo->physicsObject)
+				lambo->physicsObject->SetPosition(lambo->state.position);
+		}
 
 		while (!window->ShouldClose()) {
-
 			ProcessInput();
 
-			if (!accelerometers.empty() && selectedAccel < (int)accelReadings.size()) {
-				auto& ar = accelReadings[selectedAccel];
-				GetPhysicsEngine()->SetGravity(glm::vec3(ar.x * 12.0f, -9.81f, ar.y * 12.0f));
-			} else {
-				GetPhysicsEngine()->SetGravity(glm::vec3(0.0f, -9.81f, 0.0f));
-			}
+			GetPhysicsEngine()->SetGravity(glm::vec3(0.0f, -9.81f, 0.0f));
 
-			if (!hasWon) {
-				CheckWinCondition();
-			}
-
-			if (!freeCamera) {
-				SyncCameraToPlayer();
-			}
+			if (!freeCamera)
+				SyncCameraToCar();
 
 			if (freeCamera) {
 				int freeCamSpeed = 10;
@@ -405,6 +427,9 @@ public:
 				if (window->IsKeyDown(SDL_SCANCODE_LSHIFT)) cp -= camera->up * spd;
 				camera->SetPos(cp);
 			}
+
+			if (lambo && lambo->state.position.y < -10.0f)
+				ResetCar();
 
 			Update();
 			Redraw();
