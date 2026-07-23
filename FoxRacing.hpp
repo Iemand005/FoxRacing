@@ -309,7 +309,7 @@ public:
 				{
 					if (!window->IsCapturingMouse()) break;
 					float sensitivity = 0.2f;
-					orbitYaw += event.motion.xrel * sensitivity;
+					orbitYaw += (freeCamera ? 1 : -1) * event.motion.xrel * sensitivity;
 					orbitPitch -= event.motion.yrel * sensitivity;
 					orbitPitch = std::clamp(orbitPitch, -89.0f, 89.0f);
 					if (freeCamera) {
