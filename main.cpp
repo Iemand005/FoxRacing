@@ -35,7 +35,9 @@ int main() {
 
 	try {
 		LogToFile("Creating FoxRacing game instance...");
-		FoxRacing game;
+		fe::XRGameOptions options(1000, 1000, false);
+		options.useVulkan = false;
+		FoxRacing game(options);
 
 		LogToFile("Running game...");
 		game.Run();
