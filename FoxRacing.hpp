@@ -404,22 +404,6 @@ public:
 		if (!showDebugUI && !hasWon) return;
 		BeginFrame();
 
-		if (hasWon) {
-			ImGui::SetNextWindowSize(ImVec2(300, 120), ImGuiCond_Always);
-			ImGui::SetNextWindowPos(ImVec2(ImGui::GetIO().DisplaySize.x * 0.5f, ImGui::GetIO().DisplaySize.y * 0.5f),
-				ImGuiCond_Always, ImVec2(0.5f, 0.5f));
-			ImGui::Begin("##won", nullptr,
-				ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize |
-				ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoBackground);
-			ImGui::TextColored(ImVec4(0.0f, 1.0f, 0.0f, 1.0f), "YOU WON!");
-			if (ImGui::Button("Play Again")) {
-				hasWon = false;
-				RebuildMaze();
-				ResetBallToSpawn();
-			}
-			ImGui::End();
-		}
-
 		if (showDebugUI) {
 			DrawDebugUI();
 
