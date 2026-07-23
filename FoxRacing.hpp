@@ -135,7 +135,7 @@ public:
 
 		LoadModels();
 
-		GetPhysicsEngine()->EnableGravity();
+		GetPhysicsFactory()->EnableGravity();
 
 		accelerometers = fe::Accelerometer::EnumerateAll();
 		accelReadings.resize(accelerometers.size(), glm::vec3(0.0f));
@@ -149,11 +149,11 @@ public:
 	void OnPreSwap() override {}
 
 	void RebuildPlayerPhysicsBody() {
-		auto physicsEngine = GetPhysicsEngine();
-		if (!player || !physicsEngine) return;
+		auto PhysicsFactory = GetPhysicsFactory();
+		if (!player || !PhysicsFactory) return;
 
 		const glm::vec3 size = useRectangularPlayerHitbox ? glm::vec3(0.4f, 1.5f, 0.4f) : glm::vec3(1.0f, 1.0f, 1.0f);
-		auto newPhysics = physicsEngine->CreateObject(size, true);
+		auto newPhysics = PhysicsFactory->CreateObject(size, true);
 		if (!newPhysics) return;
 
 		this->player->SetPhysicsObject(std::move(newPhysics));
@@ -172,7 +172,7 @@ public:
 				worldPos.reserve(positions.size());
 				for (const auto& v : positions)
 					worldPos.push_back(glm::vec3(world * glm::vec4(v, 1.0f)));
-				auto physObj = GetPhysicsEngine()->CreateObject(worldPos, mesh->GetIndices());
+				auto physObj = GetPhysicsFactory()->CreateObject(worldPos, mesh->GetIndices());
 				mesh->SetPhysicsObject(std::move(physObj));
 			}
 		}
@@ -197,7 +197,7 @@ public:
 			wall->state.scale = scale;
 			wall->color = col;
 			wall->isStatic = true;
-			wall->SetPhysicsObject(GetPhysicsEngine()->CreateObject(scale, false));
+			wall->SetPhysicsObject(GetPhysicsFactory()->CreateObject(scale, false));
 			if (wall->physicsObject)
 				wall->physicsObject->SetPosition(pos);
 			scene->AddObject(wall);
@@ -242,7 +242,7 @@ public:
 		if (lambo) {
 			lambo->state.position = glm::vec3(0.0f, 10.0f, 0.0f);
 			scene->AddObject(lambo);
-			lambo->SetPhysicsObject(GetPhysicsEngine()->CreateObject(glm::vec3(1.8f, 0.6f, 4.0f), true, true));
+			lambo->SetPhysicsObject(GetPhysicsFactory()->CreateObject(glm::vec3(1.8f, 0.6f, 4.0f), true, true));
 			lambo->visualOffset = glm::vec3(0.0f, -0.6f, 0.0f);
 			if (lambo->physicsObject) {
 				lambo->physicsObject->SetPosition(lambo->state.position);
@@ -262,7 +262,7 @@ public:
 				wheels.push_back(wc(glm::vec3( 0.75f, -0.15f, 1.5f), true, false));
 				wheels.push_back(wc(glm::vec3(-0.75f, -0.15f, -1.5f), false, true));
 				wheels.push_back(wc(glm::vec3( 0.75f, -0.15f, -1.5f), false, true));
-				carVehicle = GetPhysicsEngine()->CreateVehicle(lambo->physicsObject.get(), wheels);
+				carVehicle = GetPhysicsFactory()->CreateVehicle(lambo->physicsObject.get(), wheels);
 			}
 		}
 
@@ -386,7 +386,7 @@ public:
 		while (!window->ShouldClose()) {
 			ProcessInput();
 
-			GetPhysicsEngine()->SetGravity(glm::vec3(0.0f, -9.81f, 0.0f));
+			GetPhysicsFactory()->SetGravity(glm::vec3(0.0f, -9.81f, 0.0f));
 
 			if (!freeCamera)
 				SyncCameraToCar();
