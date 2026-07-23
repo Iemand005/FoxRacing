@@ -234,7 +234,8 @@ public:
 			AddMeshColliders(terrain.get());
 		}
 
-		lambo = fe::ModelLoader::LoadModel("C:/Users/Lasse/3D Objects/1988_lamborghini_countach.glb");
+		// lambo = fe::ModelLoader::LoadModel("C:/Users/Lasse/3D Objects/1988_lamborghini_countach.glb");
+		lambo = fe::ModelLoader::LoadModel("C:/Users/Lasse/3D Objects/2008 Mitsubishi Lancer Evolution X.glb");
 		if (lambo) {
 			lambo->state.position = glm::vec3(0.0f, 10.0f, 0.0f);
 			scene->AddObject(lambo);
