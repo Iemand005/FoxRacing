@@ -307,11 +307,18 @@ public:
 				}
 				case SDL_EVENT_MOUSE_MOTION:
 				{
-					if (!window->IsCapturingMouse() || freeCamera) break;
+					if (!window->IsCapturingMouse()) break;
 					float sensitivity = 0.2f;
 					orbitYaw -= event.motion.xrel * sensitivity;
 					orbitPitch -= event.motion.yrel * sensitivity;
 					orbitPitch = std::clamp(orbitPitch, -89.0f, 89.0f);
+					if (freeCamera) {
+						glm::vec3 dir;
+						dir.x = cos(glm::radians(orbitYaw)) * cos(glm::radians(orbitPitch));
+						dir.y = sin(glm::radians(orbitPitch));
+						dir.z = sin(glm::radians(orbitYaw)) * cos(glm::radians(orbitPitch));
+						camera->setFront(glm::normalize(dir));
+					}
 					break;
 				}
 				case SDL_EVENT_KEY_DOWN:
