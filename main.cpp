@@ -36,7 +36,7 @@ int main() {
 	try {
 		LogToFile("Creating FoxRacing game instance...");
 		fe::XRGameOptions options(1000, 1000, false);
-		options.useVulkan = false;
+		options.useVulkan = true;
 		FoxRacing game(options);
 
 		LogToFile("Running game...");

@@ -236,9 +236,10 @@ public:
 
 		lambo = fe::ModelLoader::LoadModel("C:/Users/Lasse/3D Objects/1988_lamborghini_countach.glb");
 		if (lambo) {
-			lambo->state.position = glm::vec3(0.0f, 5.0f, 0.0f);
+			lambo->state.position = glm::vec3(0.0f, 10.0f, 0.0f);
 			scene->AddObject(lambo);
 			lambo->SetPhysicsObject(GetPhysicsEngine()->CreateObject(glm::vec3(1.8f, 0.6f, 4.0f), true, true));
+			lambo->visualOffset = glm::vec3(0.0f, -0.6f, 0.0f);
 			if (lambo->physicsObject) {
 				lambo->physicsObject->SetPosition(lambo->state.position);
 
@@ -298,6 +299,12 @@ public:
 			case SDL_EVENT_WINDOW_RESIZED:
 			case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
 				break;
+				case SDL_EVENT_MOUSE_WHEEL:
+				{
+					orbitDistance -= event.wheel.y * 2.0f;
+					orbitDistance = std::clamp(orbitDistance, 2.0f, 50.0f);
+					break;
+				}
 				case SDL_EVENT_MOUSE_MOTION:
 				{
 					if (!window->IsCapturingMouse() || freeCamera) break;
