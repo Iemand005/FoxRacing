@@ -1,7 +1,8 @@
 #ifdef _WIN32
-// #define _WINSOCKAPI_
-// #include <winsock2.h>
-// #include <windows.h>
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <windows.h>
+#include <shellapi.h>
 #else
 #include <X11/Xlib.h>
 #endif
@@ -11,6 +12,10 @@
 
 #include <fstream>
 #include <chrono>
+#include <vector>
+
+bool FoxRacing::s_requestRestart = false;
+bool FoxRacing::s_restartUseVulkan = false;
 
 void LogToFile(const std::string& message)
 {
@@ -29,24 +34,43 @@ void LogToFile(const std::string& message)
 	} catch (...) { }
 }
 
-int main() {
+int main(int argc, char* argv[]) {
+	bool useVulkan = true;
 
-	std::cout << "Hiii" << std::endl;
+	for (int i = 1; i < argc; ++i) {
+		std::string arg = argv[i];
+		if (arg == "--gl" || arg == "--opengl")
+			useVulkan = false;
+		else if (arg == "--vk" || arg == "--vulkan")
+			useVulkan = true;
+	}
 
-	try {
-		LogToFile("Creating FoxRacing game instance...");
-		fe::XRGameOptions options(1000, 1000, false);
-		options.useVulkan = true;
-		FoxRacing game(options);
+	std::cout << "Starting FoxRacing with " << (useVulkan ? "Vulkan" : "OpenGL") << std::endl;
 
-		LogToFile("Running game...");
-		game.Run();
+	while (true) {
+		try {
+			LogToFile("Creating FoxRacing game instance...");
+			fe::XRGameOptions options(1000, 1000, false);
+			options.useVulkan = useVulkan;
+			FoxRacing game(options);
 
-		LogToFile("Game exited normally");
-	} catch (const std::exception& e) {
-		LogToFile(std::string("Exception caught: ") + e.what());
-	} catch (...) {
-		LogToFile("Unknown exception caught");
+			LogToFile("Running game...");
+			game.Run();
+
+			LogToFile("Game exited normally");
+
+			useVulkan = FoxRacing::s_restartUseVulkan;
+			if (!FoxRacing::s_requestRestart) break;
+			FoxRacing::s_requestRestart = false;
+
+			std::cout << "Restarting with " << (useVulkan ? "Vulkan" : "OpenGL") << std::endl;
+		} catch (const std::exception& e) {
+			LogToFile(std::string("Exception caught: ") + e.what());
+			break;
+		} catch (...) {
+			LogToFile("Unknown exception caught");
+			break;
+		}
 	}
 
 	return 0;
@@ -55,7 +79,23 @@ int main() {
 #ifdef _WIN32
 
 int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR lpCmdLine, int) {
-	return main();
+	int argc = 0;
+	LPWSTR* wArgv = CommandLineToArgvW(GetCommandLineW(), &argc);
+	if (!wArgv) return main(0, nullptr);
+
+	std::vector<std::string> args;
+	std::vector<char*> argv;
+	for (int i = 0; i < argc; ++i) {
+		int len = WideCharToMultiByte(CP_UTF8, 0, wArgv[i], -1, nullptr, 0, nullptr, nullptr);
+		std::string s(len - 1, '\0');
+		WideCharToMultiByte(CP_UTF8, 0, wArgv[i], -1, s.data(), len, nullptr, nullptr);
+		args.push_back(std::move(s));
+	}
+	LocalFree(wArgv);
+
+	for (auto& s : args) argv.push_back(s.data());
+
+	return main(argc, argv.data());
 }
 
 #endif

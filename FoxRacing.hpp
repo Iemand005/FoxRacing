@@ -30,6 +30,9 @@
 class FoxRacing : public fe::EditableGame {
 public:
 
+	static bool s_requestRestart;
+	static bool s_restartUseVulkan;
+
 	bool showDebugUI = false;
 	bool useRectangularPlayerHitbox = true;
 	bool hasWon = false;
@@ -283,7 +286,7 @@ public:
 
 	void ProcessInput() {
 		SDL_Event event;
-		fe::SDLWindow *window = (fe::SDLWindow*)this->window.get();
+		auto window = GetWindow<fe::SDLWindow>();
 		window->UpdateJoysticks();
 		while (window->PollSDLEvent(&event)) {
 			ImGui_ImplSDL3_ProcessEvent(&event);
@@ -421,6 +424,14 @@ public:
 
 		if (showDebugUI) {
 			DrawDebugUI();
+
+			std::string btnLabel = std::string("Switch to ") + (useVulkan ? "OpenGL" : "Vulkan") + " && Restart";
+			if (ImGui::Button(btnLabel.c_str())) {
+				s_restartUseVulkan = !useVulkan;
+				s_requestRestart = true;
+				auto window = GetWindow<fe::SDLWindow>();
+				if (window) window->PrepareClose();
+			}
 
 			if (!accelerometers.empty()) {
 				ImGui::Begin("Accelerometers");
