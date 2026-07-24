@@ -130,7 +130,7 @@ public:
 		SetClearColor(0.1f, 0.3f, 1);
 		mazeSeed = static_cast<unsigned int>(std::random_device{}());
 
-		if (!useVulkan)
+		if (!options.useVulkan)
 			LoadShaders("resources/shaders/VertexShader.glsl", "resources/shaders/FragmentShader.glsl");
 
 		LoadModels();
@@ -426,13 +426,13 @@ public:
 		if (showDebugUI) {
 			DrawDebugUI();
 
-			std::string btnLabel = std::string("Switch to ") + (useVulkan ? "OpenGL" : "Vulkan") + " && Restart";
-			if (ImGui::Button(btnLabel.c_str())) {
-				s_restartUseVulkan = !useVulkan;
-				s_requestRestart = true;
-				auto window = GetWindow<fe::SDLWindow>();
-				if (window) window->PrepareClose();
-			}
+			// std::string btnLabel = std::string("Switch to ") + (useVulkan ? "OpenGL" : "Vulkan") + " && Restart";
+			// if (ImGui::Button(btnLabel.c_str())) {
+			// 	s_restartUseVulkan = !useVulkan;
+			// 	s_requestRestart = true;
+			// 	a (wuto window = GetWindow<fe::SDLWindow>();
+			// 	ifindow) window->PrepareClose();
+			// }
 
 			if (!accelerometers.empty()) {
 				ImGui::Begin("Accelerometers");
