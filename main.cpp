@@ -35,7 +35,7 @@ void LogToFile(const std::string& message)
 }
 
 int main(int argc, char* argv[]) {
-	bool useVulkan = false;
+	bool useVulkan = true;
 
 	for (int i = 1; i < argc; ++i) {
 		std::string arg = argv[i];
