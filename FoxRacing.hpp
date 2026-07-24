@@ -341,13 +341,14 @@ public:
 		}
 
 		if (!freeCamera && carVehicle) {
-			float forward = 0.0f, right = 0.0f, brake = 0.0f;
+			float forward = 0.0f, right = 0.0f, brake = 0.0f, handbrake = 0.0f;
 			if (window->IsKeyDown(SDL_SCANCODE_W) || window->IsKeyDown(SDL_SCANCODE_UP)) forward = 1.0f;
 			if (window->IsKeyDown(SDL_SCANCODE_S) || window->IsKeyDown(SDL_SCANCODE_DOWN)) forward = -0.5f;
 			if (window->IsKeyDown(SDL_SCANCODE_A) || window->IsKeyDown(SDL_SCANCODE_LEFT)) right = -1.0f;
 			if (window->IsKeyDown(SDL_SCANCODE_D) || window->IsKeyDown(SDL_SCANCODE_RIGHT)) right = 1.0f;
-			if (window->IsKeyDown(SDL_SCANCODE_SPACE)) brake = 1.0f;
-			carVehicle->SetDriverInput(forward, right, brake, 0.0f);
+			if (window->IsKeyDown(SDL_SCANCODE_LSHIFT)) brake = 1.0f;
+			if (window->IsKeyDown(SDL_SCANCODE_SPACE)) handbrake = 1.0f;
+			carVehicle->SetDriverInput(forward, right, brake, handbrake);
 		}
 
 		if (window->IsKeyDown(SDL_SCANCODE_ESCAPE)) window->StopMouseCapture();
