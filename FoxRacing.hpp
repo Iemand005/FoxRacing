@@ -229,9 +229,12 @@ public:
 	}
 
 	void LoadModels() {
-		float worldScale = 1.35f;
-		auto terrain = fe::ModelLoader::LoadModel("C:/Users/Lasse/3D Objects/road_with_trees.glb");
+		// float worldScale = 1.35f;
+		// auto terrain = fe::ModelLoader::LoadModel("C:/Users/Lasse/3D Objects/road_with_trees.glb");
+		float worldScale = 1.0f;
+		auto terrain = fe::ModelLoader::LoadModel("C:/Users/Lasse/3D Objects/shanghai_compressed.glb");
 		if (terrain) {
+			terrain->SetPosition({0,5,0});
 			scene->AddObject(terrain);
 			ScaleObject(terrain.get(), worldScale);
 			AddMeshColliders(terrain.get());
@@ -263,6 +266,15 @@ public:
 				wheels.push_back(wc(glm::vec3(-0.75f, -0.15f, -1.5f), false, true));
 				wheels.push_back(wc(glm::vec3( 0.75f, -0.15f, -1.5f), false, true));
 				carVehicle = GetPhysicsFactory()->CreateVehicle(lambo->physicsObject.get(), wheels);
+				if (!joysticks.empty() && joysticks[0].IsHaptic()) {
+					SDL_HapticDirection dir{};
+					dir.type = SDL_HAPTIC_CARTESIAN;
+					dir.dir[0] = 1;
+					joysticks[0].constEffectId = joysticks[0].CreateConstantEffect(0, dir);
+					joysticks[0].RunEffect(joysticks[0].constEffectId);
+					joysticks[0].periodicEffectId = joysticks[0].CreatePeriodicEffect(SDL_HAPTIC_SINE, 0, 20000);
+					joysticks[0].RunEffect(joysticks[0].periodicEffectId);
+				}
 			}
 		}
 
@@ -427,6 +439,30 @@ public:
 				ResetCar();
 
 			Update();
+
+			if (!joysticks.empty() && carVehicle && fpsCounter.deltaTime > 0.0) {
+				float dt = static_cast<float>(fpsCounter.deltaTime);
+				int nw = carVehicle->GetNumWheels();
+				float latSum = 0.0f;
+				int latCount = 0;
+				float suspSum = 0.0f;
+				for (int i = 0; i < nw; ++i) {
+					auto f = carVehicle->GetWheelForce(i);
+					if (f.hasContact) {
+						if (i < 2) { latSum += f.lateralLambda / dt; latCount++; }
+						suspSum += f.suspensionLambda / dt;
+					}
+				}
+				float latForce = latCount > 0 ? latSum / latCount : 0.0f;
+				float clamped = std::clamp(latForce / 8000.0f, -1.0f, 1.0f);
+				UpdateJoystickConstantForce(0, static_cast<Sint16>(clamped * 16384.0f));
+				float rpm = carVehicle->GetEngineRPM();
+				float rpmFactor = std::clamp((rpm - 1000.0f) / 7000.0f, 0.0f, 1.0f);
+				float roadFactor = std::clamp(suspSum / 20000.0f / nw, 0.0f, 1.0f);
+				float mag = std::clamp((rpmFactor * 0.6f + roadFactor * 0.4f) * 32767.0f, 0.0f, 32767.0f);
+				UpdateJoystickPeriodicEffect(0, static_cast<Sint16>(mag));
+			}
+
 			Redraw();
 		}
 
