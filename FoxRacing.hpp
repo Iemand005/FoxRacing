@@ -325,18 +325,21 @@ public:
 					}
 					break;
 				}
-				case SDL_EVENT_KEY_DOWN:
-					if (event.key.key == SDLK_F11) {
-						window->ToggleFullscreen();
-					}
-					else if (event.key.key == SDLK_F3) {
-						showDebugUI = !showDebugUI;
-					}
-					else if (event.key.key == SDLK_F2) {
-						freeCamera = !freeCamera;
-						window->StartMouseCapture();
-					}
-					break;
+		case SDL_EVENT_KEY_DOWN:
+				if (event.key.key == SDLK_F11) {
+					window->ToggleFullscreen();
+				}
+				else if (event.key.key == SDLK_F3) {
+					showDebugUI = !showDebugUI;
+				}
+				else if (event.key.key == SDLK_F2) {
+					freeCamera = !freeCamera;
+					window->StartMouseCapture();
+				}
+				else if (event.key.key == SDLK_R) {
+					ResetCar();
+				}
+				break;
 			}
 		}
 
@@ -347,10 +350,10 @@ public:
 				auto& joy = joysticks[0];
 				right = joy.GetAxis(0);
 				float rawGas = joy.GetAxis(1);
-				float rawBrake = joy.GetAxis(2);
-				forward = std::max(0.0f, (1.0f - rawGas) * 0.5f - 0.02f);
-				float rev = std::max(0.0f, (1.0f - rawBrake) * 0.5f);
-				if (rev > 0.05f) forward = -rev;
+				float gas = (1.0f - rawGas) * 0.5f;
+				forward = gas > 0.02f ? gas : 0.0f;
+				float rev = std::max(0.0f, -joy.GetAxis(2));
+				if (rev > 0.1f) forward = -rev;
 			}
 
 			if (window->IsKeyDown(SDL_SCANCODE_W) || window->IsKeyDown(SDL_SCANCODE_UP)) forward = std::max(forward, 1.0f);
