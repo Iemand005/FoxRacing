@@ -467,23 +467,7 @@ public:
 
 				ImGui::End();
 
-				ImGui::Begin("Joysticks");
-				{
-					if (ImGui::Button("Refresh")) RefreshJoysticks();
-					ImGui::SameLine();
-					ImGui::Text("%zu joystick(s)", joysticks.size());
-					for (size_t i = 0; i < joysticks.size(); ++i) {
-						ImGui::Text("%zu: %s", i, joysticks[i].GetName().c_str());
-						auto axis = joysticks[i].GetAxis();
-						ImGui::ProgressBar((axis.x + 1.0f) * 0.5f, ImVec2(0.0f, 0.0f), "");
-						ImGui::SameLine();
-						ImGui::Text("X: %.2f", axis.x);
-						ImGui::ProgressBar((axis.y + 1.0f) * 0.5f, ImVec2(0.0f, 0.0f), "");
-						ImGui::SameLine();
-						ImGui::Text("Y: %.2f", axis.y);
-					}
-				}
-				ImGui::End();
+
 			}
 		}
 
