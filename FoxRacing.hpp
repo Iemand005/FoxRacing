@@ -315,7 +315,7 @@ public:
 			if (carVehicle && lambo && lambo->physicsObject) {
 				glm::vec3 vel = lambo->physicsObject->GetLinearVelocity();
 				float speed = glm::length(vel);
-				float downforce = speed * speed * 5.0f;
+				float downforce = speed * speed * 15.0f;
 				if (downforce > 1.0f)
 					lambo->physicsObject->AddForce(glm::vec3(0.0f, -downforce, 0.0f));
 
