@@ -255,9 +255,9 @@ public:
 				auto wc = [](glm::vec3 pos, bool steer, bool driven) {
 					fe::PhysicsVehicle::WheelConfig w;
 					w.position = pos; w.radius = 0.35f; w.width = 0.25f;
-					w.suspensionMaxLength = 0.3f;
-					w.suspensionFrequency = 1.5f;
-					w.suspensionDamping = 0.5f;
+					w.suspensionMaxLength = 0.25f;
+					w.suspensionFrequency = 2.5f;
+					w.suspensionDamping = 1.0f;
 					w.friction = 1.0f;
 					w.isSteering = steer; w.isDriven = driven;
 					return w;
@@ -267,6 +267,7 @@ public:
 				wheels.push_back(wc(glm::vec3(-0.75f, -0.15f, -1.5f), false, true));
 				wheels.push_back(wc(glm::vec3( 0.75f, -0.15f, -1.5f), false, true));
 				carVehicle = GetPhysicsFactory()->CreateVehicle(lambo->physicsObject.get(), wheels);
+				carVehicle->SetMaxPitchRollAngle(25);
 				if (!joysticks.empty() && joysticks[0].IsHaptic()) {
 					SDL_HapticDirection dir{};
 					dir.type = SDL_HAPTIC_CARTESIAN;
@@ -448,6 +449,14 @@ public:
 				ResetCar();
 
 			Update();
+
+			if (carVehicle && lambo && lambo->physicsObject) {
+				glm::vec3 vel = lambo->physicsObject->GetLinearVelocity();
+				float speed = glm::length(vel);
+				float downforce = speed * speed * 0.15f;
+				if (downforce > 1.0f)
+					lambo->physicsObject->AddForce(glm::vec3(0.0f, -downforce, 0.0f));
+			}
 
 			if (!joysticks.empty() && carVehicle && fpsCounter.deltaTime > 0.0) {
 				auto& joy = joysticks[0];
