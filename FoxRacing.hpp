@@ -344,9 +344,13 @@ public:
 			float forward = 0.0f, right = 0.0f, brake = 0.0f, handbrake = 0.0f;
 
 			if (!joysticks.empty()) {
-				glm::vec2 axis = joysticks[0].GetAxis();
-				right = -axis.x;
-				forward = (1.0f - axis.y) * 0.5f;
+				auto& joy = joysticks[0];
+				right = joy.GetAxis(0);
+				float rawGas = joy.GetAxis(1);
+				float rawBrake = joy.GetAxis(2);
+				forward = std::max(0.0f, (1.0f - rawGas) * 0.5f - 0.02f);
+				float rev = std::max(0.0f, (1.0f - rawBrake) * 0.5f);
+				if (rev > 0.05f) forward = -rev;
 			}
 
 			if (window->IsKeyDown(SDL_SCANCODE_W) || window->IsKeyDown(SDL_SCANCODE_UP)) forward = std::max(forward, 1.0f);
@@ -390,6 +394,8 @@ public:
 			if (lambo->physicsObject)
 				lambo->physicsObject->SetPosition(lambo->state.position);
 		}
+
+		SyncCameraToCar();
 
 		while (!window->ShouldClose()) {
 			ProcessInput();
