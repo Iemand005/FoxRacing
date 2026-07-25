@@ -45,7 +45,6 @@ public:
 	std::vector<glm::vec3> accelReadings;
 	int selectedAccel = 0;
 	std::shared_ptr<fe::Object> ballObject;
-	std::shared_ptr<fe::Object> goalObject;
 
 	std::shared_ptr<fe::Object> lambo;
 	fe::PhysicsVehicle* carVehicle = nullptr;
@@ -58,48 +57,6 @@ public:
 	static constexpr float WALL_THICK = 0.3f;
 	static constexpr float BALL_RADIUS = 0.5f;
 
-	struct MazeCell {
-		bool wallN = true, wallS = true, wallE = true, wallW = true;
-		bool visited = false;
-	};
-
-	MazeCell mazeGrid[MAZE_ROWS][MAZE_COLS];
-
-	void GenerateMaze() {
-		// Reset all cells
-		for (int r = 0; r < MAZE_ROWS; r++)
-			for (int c = 0; c < MAZE_COLS; c++)
-				mazeGrid[r][c] = MazeCell();
-
-		std::mt19937 rng(mazeSeed);
-		std::uniform_int_distribution<int> dirDist(0, 3);
-		int dx[] = { 0, 0, 1, -1 };
-		int dz[] = { -1, 1, 0, 0 };
-
-		auto carve = [&](auto& self, int cx, int cz) -> void {
-			mazeGrid[cz][cx].visited = true;
-
-			int dirs[] = { 0, 1, 2, 3 };
-			std::shuffle(dirs, dirs + 4, rng);
-
-			for (int d = 0; d < 4; d++) {
-				int nd = dirs[d];
-				int nx = cx + dx[nd];
-				int nz = cz + dz[nd];
-				if (nx < 0 || nx >= MAZE_COLS || nz < 0 || nz >= MAZE_ROWS) continue;
-				if (mazeGrid[nz][nx].visited) continue;
-
-				if (nd == 0) { mazeGrid[cz][cx].wallN = false; mazeGrid[nz][nx].wallS = false; }
-				if (nd == 1) { mazeGrid[cz][cx].wallS = false; mazeGrid[nz][nx].wallN = false; }
-				if (nd == 2) { mazeGrid[cz][cx].wallE = false; mazeGrid[nz][nx].wallW = false; }
-				if (nd == 3) { mazeGrid[cz][cx].wallW = false; mazeGrid[nz][nx].wallE = false; }
-
-				self(self, nx, nz);
-			}
-		};
-
-		carve(carve, 0, 0);
-	}
 
 	glm::vec3 CellToWorld(int col, int row) {
 		float totalW = MAZE_COLS * CELL_SIZE;
@@ -181,35 +138,6 @@ public:
 		for (auto& child : obj->children) {
 			AddMeshColliders(child.get());
 		}
-	}
-
-	void CreateBarrierWalls() {
-		float size = 500.0f;
-		float height = 5.0f;
-		float thick = 1.0f;
-		glm::vec3 col(0.0f);
-		auto addWall = [&](glm::vec3 pos, glm::vec3 scale) {
-			auto mesh = fe::Primitives::GenerateCube(
-				{fe::PlaneDirection::Front, fe::PlaneDirection::Back, fe::PlaneDirection::Left,
-				 fe::PlaneDirection::Right, fe::PlaneDirection::Top, fe::PlaneDirection::Bottom},
-				fe::Primitives::defaultUVs, 1.0f);
-			auto wall = std::make_shared<fe::Object>(mesh);
-			wall->state.position = pos;
-			wall->state.scale = scale;
-			wall->color = col;
-			wall->isStatic = true;
-			wall->SetPhysicsObject(GetPhysicsFactory()->CreateObject(scale, false));
-			if (wall->physicsObject)
-				wall->physicsObject->SetPosition(pos);
-			scene->AddObject(wall);
-			barrierWalls.push_back(wall);
-		};
-		float half = size * 0.5f;
-		addWall(glm::vec3(0.0f, -2.0f, 0.0f), glm::vec3(size, 0.5f, size));
-		addWall(glm::vec3(0.0f, height * 0.5f, -half - thick), glm::vec3(size + thick, height, thick));
-		addWall(glm::vec3(0.0f, height * 0.5f, half + thick), glm::vec3(size + thick, height, thick));
-		addWall(glm::vec3(-half - thick, height * 0.5f, 0.0f), glm::vec3(thick, height, size + thick));
-		addWall(glm::vec3(half + thick, height * 0.5f, 0.0f), glm::vec3(thick, height, size + thick));
 	}
 
 	void ResetCar() {
@@ -389,22 +317,6 @@ public:
 
 		if (window->IsKeyDown(SDL_SCANCODE_ESCAPE)) window->StopMouseCapture();
 		if (ImGui::GetIO().WantCaptureMouse) window->StopMouseCapture();
-	}
-
-	void CheckWinCondition() {
-		if (hasWon || !ballObject || !goalObject) return;
-		float dist = glm::length(ballObject->state.position - goalObject->state.position);
-		if (dist < BALL_RADIUS + 0.8f) {
-			hasWon = true;
-		}
-
-		if (!hasWon && ballObject && ballObject->physicsObject) {
-			float halfBoard = std::max(MAZE_COLS, MAZE_ROWS) * CELL_SIZE * 0.5f + 1.0f;
-			auto& bp = ballObject->state.position;
-			if (bp.y < -5.0f || bp.x < -halfBoard || bp.x > halfBoard || bp.z < -halfBoard || bp.z > halfBoard) {
-				ResetBallToSpawn();
-			}
-		}
 	}
 
 	void Run() {
