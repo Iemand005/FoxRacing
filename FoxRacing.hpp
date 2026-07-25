@@ -8,7 +8,6 @@
 #include <cstdio>
 #include <string>
 #include <vector>
-#include <random>
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -36,56 +35,22 @@ public:
 	static bool s_restartUseVulkan;
 
 	bool showDebugUI = false;
-	bool useRectangularPlayerHitbox = true;
-	bool hasWon = false;
-	unsigned int mazeSeed = 0;
-	std::vector<std::shared_ptr<fe::Object>> mazeWalls;
 
 	std::vector<fe::Accelerometer> accelerometers;
 	std::vector<glm::vec3> accelReadings;
 	int selectedAccel = 0;
-	std::shared_ptr<fe::Object> ballObject;
 
 	std::shared_ptr<fe::Object> lambo;
 	fe::PhysicsVehicle* carVehicle = nullptr;
 	std::vector<std::shared_ptr<fe::Object>> barrierWalls;
 
-	static constexpr int MAZE_COLS = 8;
-	static constexpr int MAZE_ROWS = 8;
-	static constexpr float CELL_SIZE = 2.0f;
-	static constexpr float WALL_HEIGHT = 1.0f;
-	static constexpr float WALL_THICK = 0.3f;
-	static constexpr float BALL_RADIUS = 0.5f;
-
-
-	glm::vec3 CellToWorld(int col, int row) {
-		float totalW = MAZE_COLS * CELL_SIZE;
-		float totalH = MAZE_ROWS * CELL_SIZE;
-		return glm::vec3(
-			col * CELL_SIZE + CELL_SIZE * 0.5f - totalW * 0.5f,
-			0.0f,
-			row * CELL_SIZE + CELL_SIZE * 0.5f - totalH * 0.5f
-		);
-	}
-
-	glm::vec3 GetBallSpawnPos() {
-		glm::vec3 pos = CellToWorld(0, 0);
-		pos.y = BALL_RADIUS + 0.1f;
-		return pos;
-	}
-
-	void ResetBallToSpawn() {
-		if (!ballObject || !ballObject->physicsObject) return;
-		glm::vec3 pos = GetBallSpawnPos();
-		ballObject->state.position = pos;
-		ballObject->physicsObject->SetPosition(pos);
-		ballObject->physicsObject->SetLinearVelocity(glm::vec3(0.0f));
-	}
+	glm::vec3 prevVelocity = glm::vec3(0.0f);
+	float collisionHapticTimer = 0.0f;
+	float collisionHapticStrength = 0.0f;
 
 	FoxRacing(fe::XRGameOptions options) : fe::EditableGame(options) {
 
 		SetClearColor(0.1f, 0.3f, 1);
-		mazeSeed = static_cast<unsigned int>(std::random_device{}());
 
 		if (!options.useVulkan)
 			LoadShaders("resources/shaders/VertexShader.glsl", "resources/shaders/FragmentShader.glsl");
@@ -105,20 +70,6 @@ public:
 	}
 
 	void OnPreSwap() override {}
-
-	void RebuildPlayerPhysicsBody() {
-		auto PhysicsFactory = GetPhysicsFactory();
-		if (!player || !PhysicsFactory) return;
-
-		const glm::vec3 size = useRectangularPlayerHitbox ? glm::vec3(0.4f, 1.5f, 0.4f) : glm::vec3(1.0f, 1.0f, 1.0f);
-		auto newPhysics = PhysicsFactory->CreateObject(size, true);
-		if (!newPhysics) return;
-
-		this->player->SetPhysicsObject(std::move(newPhysics));
-		if (this->player->physicsObject) {
-			this->player->physicsObject->SetPosition(this->player->state.position);
-		}
-	}
 
 	void AddMeshColliders(fe::Object* obj) {
 		for (auto& mesh : obj->meshes) {
@@ -367,6 +318,25 @@ public:
 				float downforce = speed * speed * 5.0f;
 				if (downforce > 1.0f)
 					lambo->physicsObject->AddForce(glm::vec3(0.0f, -downforce, 0.0f));
+
+				glm::vec3 velDelta = vel - prevVelocity;
+				float impact = glm::length(velDelta);
+				if (impact > 1.5f) {
+					float strength = std::clamp((impact - 1.5f) / 10.0f, 0.0f, 1.0f);
+					collisionHapticStrength = std::max(collisionHapticStrength, strength);
+					collisionHapticTimer = 0.4f;
+				}
+				prevVelocity = vel;
+			}
+
+			if (collisionHapticTimer > 0.0f && fpsCounter.deltaTime > 0.0) {
+				collisionHapticTimer -= static_cast<float>(fpsCounter.deltaTime);
+				if (collisionHapticTimer <= 0.0f) {
+					collisionHapticTimer = 0.0f;
+					collisionHapticStrength = 0.0f;
+				} else {
+					collisionHapticStrength *= 0.92f;
+				}
 			}
 
 			if (!joysticks.empty() && carVehicle && fpsCounter.deltaTime > 0.0) {
@@ -388,6 +358,8 @@ public:
 				float centering = -steer * 0.4f;
 				float align = std::clamp(latForce / 4000.0f, -1.0f, 1.0f) * 0.6f;
 				float ffb = std::clamp(centering + align, -1.0f, 1.0f);
+				if (collisionHapticStrength > 0.01f)
+					ffb = std::clamp(ffb + collisionHapticStrength, -1.0f, 1.0f);
 				if (joy.constEffectId < 0 && joy.IsHaptic()) {
 					SDL_HapticDirection dir{};
 					dir.type = SDL_HAPTIC_CARTESIAN;
@@ -400,6 +372,8 @@ public:
 				float rpmFactor = std::clamp((rpm - 1000.0f) / 2000.0f, 0.0f, 1.0f);
 				float roadFactor = std::clamp(suspSum / 5000.0f / nw, 0.0f, 1.0f);
 				float mag = std::clamp((rpmFactor * 0.5f + roadFactor * 0.5f) * 16384.0f, 0.0f, 16384.0f);
+				if (collisionHapticStrength > 0.01f)
+					mag = std::clamp(mag + collisionHapticStrength * 12000.0f, 0.0f, 16384.0f);
 				if (joy.periodicEffectId < 0 && joy.IsHaptic()) {
 					joy.periodicEffectId = joy.CreatePeriodicEffect(SDL_HAPTIC_SINE, 0, 20000);
 					if (joy.periodicEffectId >= 0) joy.RunEffect(joy.periodicEffectId);
@@ -416,7 +390,7 @@ public:
 	void InitUI() override {}
 
 	void DrawUI() override {
-		if (!showDebugUI && !hasWon) return;
+		if (!showDebugUI) return;
 		BeginFrame();
 
 		if (showDebugUI) {
@@ -426,14 +400,6 @@ public:
 			ImGui::Checkbox("Lock behind car", &cameraLockedToCar);
 			ImGui::Text("Yaw: %.1f Pitch: %.1f Dist: %.1f", orbitYaw, orbitPitch, orbitDistance);
 			ImGui::End();
-
-			// std::string btnLabel = std::string("Switch to ") + (useVulkan ? "OpenGL" : "Vulkan") + " && Restart";
-			// if (ImGui::Button(btnLabel.c_str())) {
-			// 	s_restartUseVulkan = !useVulkan;
-			// 	s_requestRestart = true;
-			// 	a (wuto window = GetWindow<fe::SDLWindow>();
-			// 	ifindow) window->PrepareClose();
-			// }
 
 			if (!accelerometers.empty()) {
 				ImGui::Begin("Accelerometers");
