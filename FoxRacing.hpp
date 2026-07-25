@@ -208,7 +208,6 @@ public:
 			}
 		}
 
-		CreateBarrierWalls();
 	}
 
 	bool freeCamera = false;
