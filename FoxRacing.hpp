@@ -13,6 +13,8 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
+#include <glm/gtx/quaternion.hpp>
+#include <glm/gtc/quaternion.hpp>
 
 #include <imgui/imgui.h>
 #include <imgui/backends/imgui_impl_sdl3.h>
@@ -289,11 +291,16 @@ public:
 	void SyncCameraToCar() {
 		if (!lambo || freeCamera) return;
 		glm::vec3 carPos = lambo->state.position;
-		if (cameraLockedToCar)
-			orbitYaw = lambo->state.rotation.y;
-		glm::mat4 rot = glm::rotate(glm::mat4(1.0f), glm::radians(orbitYaw), glm::vec3(0.0f, 1.0f, 0.0f));
-		rot = glm::rotate(rot, glm::radians(orbitPitch), glm::vec3(1.0f, 0.0f, 0.0f));
-		glm::vec3 offset = glm::vec3(rot * glm::vec4(0.0f, 0.0f, orbitDistance, 1.0f));
+		glm::vec3 offset;
+		if (cameraLockedToCar && lambo->physicsObject) {
+			glm::quat carQuat = lambo->physicsObject->GetRotation();
+			glm::quat pitchQuat = glm::angleAxis(glm::radians(orbitPitch), glm::vec3(1.0f, 0.0f, 0.0f));
+			offset = carQuat * pitchQuat * glm::vec3(0.0f, 0.0f, -orbitDistance);
+		} else {
+			glm::mat4 rot = glm::rotate(glm::mat4(1.0f), glm::radians(orbitYaw), glm::vec3(0.0f, 1.0f, 0.0f));
+			rot = glm::rotate(rot, glm::radians(orbitPitch), glm::vec3(1.0f, 0.0f, 0.0f));
+			offset = glm::vec3(rot * glm::vec4(0.0f, 0.0f, orbitDistance, 1.0f));
+		}
 		camera->SetPos(carPos + offset);
 		camera->LookAt(carPos);
 	}
