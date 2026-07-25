@@ -45,8 +45,6 @@ public:
 	std::shared_ptr<fe::Object> ballObject;
 	std::shared_ptr<fe::Object> goalObject;
 
-	std::vector<fe::Joystick> joysicks;
-
 	std::shared_ptr<fe::Object> lambo;
 	fe::PhysicsVehicle* carVehicle = nullptr;
 	std::vector<std::shared_ptr<fe::Object>> barrierWalls;
@@ -144,6 +142,8 @@ public:
 				accelReadings[i] = accel;
 			});
 		}
+
+		RefreshJoysticks();
 	}
 
 	void OnPreSwap() override {}
@@ -342,10 +342,17 @@ public:
 
 		if (!freeCamera && carVehicle) {
 			float forward = 0.0f, right = 0.0f, brake = 0.0f, handbrake = 0.0f;
-			if (window->IsKeyDown(SDL_SCANCODE_W) || window->IsKeyDown(SDL_SCANCODE_UP)) forward = 1.0f;
-			if (window->IsKeyDown(SDL_SCANCODE_S) || window->IsKeyDown(SDL_SCANCODE_DOWN)) forward = -0.5f;
-			if (window->IsKeyDown(SDL_SCANCODE_A) || window->IsKeyDown(SDL_SCANCODE_LEFT)) right = -1.0f;
-			if (window->IsKeyDown(SDL_SCANCODE_D) || window->IsKeyDown(SDL_SCANCODE_RIGHT)) right = 1.0f;
+
+			if (!joysticks.empty()) {
+				glm::vec2 axis = joysticks[0].GetAxis();
+				right = -axis.x;
+				forward = (1.0f - axis.y) * 0.5f;
+			}
+
+			if (window->IsKeyDown(SDL_SCANCODE_W) || window->IsKeyDown(SDL_SCANCODE_UP)) forward = std::max(forward, 1.0f);
+			if (window->IsKeyDown(SDL_SCANCODE_S) || window->IsKeyDown(SDL_SCANCODE_DOWN)) forward = std::min(forward, -0.5f);
+			if (window->IsKeyDown(SDL_SCANCODE_A) || window->IsKeyDown(SDL_SCANCODE_LEFT)) right = std::min(right, -1.0f);
+			if (window->IsKeyDown(SDL_SCANCODE_D) || window->IsKeyDown(SDL_SCANCODE_RIGHT)) right = std::max(right, 1.0f);
 			if (window->IsKeyDown(SDL_SCANCODE_LSHIFT)) brake = 1.0f;
 			if (window->IsKeyDown(SDL_SCANCODE_SPACE)) handbrake = 1.0f;
 			carVehicle->SetDriverInput(forward, right, brake, handbrake);
@@ -462,8 +469,18 @@ public:
 
 				ImGui::Begin("Joysticks");
 				{
-					for (auto &boystick : joysicks) {
-
+					if (ImGui::Button("Refresh")) RefreshJoysticks();
+					ImGui::SameLine();
+					ImGui::Text("%zu joystick(s)", joysticks.size());
+					for (size_t i = 0; i < joysticks.size(); ++i) {
+						ImGui::Text("%zu: %s", i, joysticks[i].GetName().c_str());
+						auto axis = joysticks[i].GetAxis();
+						ImGui::ProgressBar((axis.x + 1.0f) * 0.5f, ImVec2(0.0f, 0.0f), "");
+						ImGui::SameLine();
+						ImGui::Text("X: %.2f", axis.x);
+						ImGui::ProgressBar((axis.y + 1.0f) * 0.5f, ImVec2(0.0f, 0.0f), "");
+						ImGui::SameLine();
+						ImGui::Text("Y: %.2f", axis.y);
 					}
 				}
 				ImGui::End();
