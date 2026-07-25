@@ -131,6 +131,7 @@ public:
 		if (!options.useVulkan)
 			LoadShaders("resources/shaders/VertexShader.glsl", "resources/shaders/FragmentShader.glsl");
 
+		RefreshJoysticks();
 		LoadModels();
 
 		GetPhysicsFactory()->EnableGravity();
@@ -142,8 +143,6 @@ public:
 				accelReadings[i] = accel;
 			});
 		}
-
-		RefreshJoysticks();
 	}
 
 	void OnPreSwap() override {}
@@ -282,6 +281,7 @@ public:
 	}
 
 	bool freeCamera = false;
+	bool cameraLockedToCar = true;
 	float orbitYaw = 0.0f;
 	float orbitPitch = -20.0f;
 	float orbitDistance = 10.0f;
@@ -289,6 +289,8 @@ public:
 	void SyncCameraToCar() {
 		if (!lambo || freeCamera) return;
 		glm::vec3 carPos = lambo->state.position;
+		if (cameraLockedToCar)
+			orbitYaw = lambo->state.rotation.y;
 		glm::mat4 rot = glm::rotate(glm::mat4(1.0f), glm::radians(orbitYaw), glm::vec3(0.0f, 1.0f, 0.0f));
 		rot = glm::rotate(rot, glm::radians(orbitPitch), glm::vec3(1.0f, 0.0f, 0.0f));
 		glm::vec3 offset = glm::vec3(rot * glm::vec4(0.0f, 0.0f, orbitDistance, 1.0f));
@@ -441,25 +443,40 @@ public:
 			Update();
 
 			if (!joysticks.empty() && carVehicle && fpsCounter.deltaTime > 0.0) {
+				auto& joy = joysticks[0];
 				float dt = static_cast<float>(fpsCounter.deltaTime);
 				int nw = carVehicle->GetNumWheels();
-				float latSum = 0.0f;
-				int latCount = 0;
+				float latForce = 0.0f;
 				float suspSum = 0.0f;
+				int latCount = 0;
 				for (int i = 0; i < nw; ++i) {
 					auto f = carVehicle->GetWheelForce(i);
 					if (f.hasContact) {
-						if (i < 2) { latSum += f.lateralLambda / dt; latCount++; }
+						if (i < 2) { latForce += f.lateralLambda / dt; latCount++; }
 						suspSum += f.suspensionLambda / dt;
 					}
 				}
-				float latForce = latCount > 0 ? latSum / latCount : 0.0f;
-				float clamped = std::clamp(latForce / 8000.0f, -1.0f, 1.0f);
-				UpdateJoystickConstantForce(0, static_cast<Sint16>(clamped * 16384.0f));
+				if (latCount > 0) latForce /= latCount;
+				float steer = joy.GetAxis(0);
+				float centering = -steer * 0.4f;
+				float align = std::clamp(latForce / 4000.0f, -1.0f, 1.0f) * 0.6f;
+				float ffb = std::clamp(centering + align, -1.0f, 1.0f);
+				if (joy.constEffectId < 0 && joy.IsHaptic()) {
+					SDL_HapticDirection dir{};
+					dir.type = SDL_HAPTIC_CARTESIAN;
+					dir.dir[0] = 1;
+					joy.constEffectId = joy.CreateConstantEffect(0, dir);
+					if (joy.constEffectId >= 0) joy.RunEffect(joy.constEffectId);
+				}
+				UpdateJoystickConstantForce(0, static_cast<Sint16>(ffb * 16384.0f));
 				float rpm = carVehicle->GetEngineRPM();
-				float rpmFactor = std::clamp((rpm - 1000.0f) / 7000.0f, 0.0f, 1.0f);
-				float roadFactor = std::clamp(suspSum / 20000.0f / nw, 0.0f, 1.0f);
-				float mag = std::clamp((rpmFactor * 0.6f + roadFactor * 0.4f) * 32767.0f, 0.0f, 32767.0f);
+				float rpmFactor = std::clamp((rpm - 1000.0f) / 2000.0f, 0.0f, 1.0f);
+				float roadFactor = std::clamp(suspSum / 5000.0f / nw, 0.0f, 1.0f);
+				float mag = std::clamp((rpmFactor * 0.5f + roadFactor * 0.5f) * 16384.0f, 0.0f, 16384.0f);
+				if (joy.periodicEffectId < 0 && joy.IsHaptic()) {
+					joy.periodicEffectId = joy.CreatePeriodicEffect(SDL_HAPTIC_SINE, 0, 20000);
+					if (joy.periodicEffectId >= 0) joy.RunEffect(joy.periodicEffectId);
+				}
 				UpdateJoystickPeriodicEffect(0, static_cast<Sint16>(mag));
 			}
 
@@ -477,6 +494,11 @@ public:
 
 		if (showDebugUI) {
 			DrawDebugUI();
+
+			ImGui::Begin("Camera");
+			ImGui::Checkbox("Lock behind car", &cameraLockedToCar);
+			ImGui::Text("Yaw: %.1f Pitch: %.1f Dist: %.1f", orbitYaw, orbitPitch, orbitDistance);
+			ImGui::End();
 
 			// std::string btnLabel = std::string("Switch to ") + (useVulkan ? "OpenGL" : "Vulkan") + " && Restart";
 			// if (ImGui::Button(btnLabel.c_str())) {
