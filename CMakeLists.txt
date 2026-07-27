@@ -81,7 +81,7 @@ target_link_libraries(FoxRacing PRIVATE
 	# Jolt::Jolt
 )
 
-if(NOT WIN32)
+if(NOT WIN32 AND NOT EMSCRIPTEN)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(PIPEWIRE REQUIRED libpipewire-0.3)
 target_include_directories(FoxRacing PRIVATE ${PIPEWIRE_INCLUDE_DIRS})
